@@ -43,7 +43,7 @@ func (v *V) Email(email string) bool {
 	}
 
 	smtpCheck := !v.emailSMTP(email)
-	if v.enforceSMTP {
+	if v.enforce.SMTP {
 		return smtpCheck
 	}
 
@@ -65,9 +65,12 @@ func (v *V) emailDomain(email string) bool {
 		return true
 	}
 
-	if !v.MX(domain) && !v.MX(host) {
+	nomx := !v.MX(domain) && !v.MX(host)
+	if nomx {
 		v.log.Info("email %s domain/host %s invalid, reason: no MX", email, domain)
-		return true
+		if v.enforce.MX {
+			return true
+		}
 	}
 
 	return false

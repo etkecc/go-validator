@@ -2,10 +2,10 @@ package validator
 
 // V is a validator implementation
 type V struct {
-	spamlist    Spam
-	from        string
-	enforceSMTP bool
-	log         Logger
+	spamlist Spam
+	enforce  Enforce
+	from     string
+	log      Logger
 }
 
 // Spam config
@@ -18,17 +18,23 @@ type Spam struct {
 	Localparts []string
 }
 
+// Enforce checks
+type Enforce struct {
+	SMTP bool
+	MX   bool
+}
+
 type Logger interface {
 	Info(string, ...interface{})
 	Error(string, ...interface{})
 }
 
 // New Validator
-func New(spam Spam, smtpFrom string, smtpEnforce bool, log Logger) *V {
+func New(spam Spam, enforce Enforce, smtpFrom string, log Logger) *V {
 	return &V{
-		spamlist:    spam,
-		from:        smtpFrom,
-		enforceSMTP: smtpEnforce,
-		log:         log,
+		spamlist: spam,
+		enforce:  enforce,
+		from:     smtpFrom,
+		log:      log,
 	}
 }

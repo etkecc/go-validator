@@ -35,8 +35,12 @@ func setup(t *testing.T) *V {
 		Emails:     []string{"spam@email.host"},
 		Localparts: []string{"spam"},
 	}
+	enforce := Enforce{
+		MX:   true,
+		SMTP: false,
+	}
 
-	return New(spam, "test@ilydeen.org", false, &log{})
+	return New(spam, enforce, "test@ilydeen.org", &log{})
 }
 
 func TestNew(t *testing.T) {
@@ -144,7 +148,7 @@ func TestDomainLax(t *testing.T) {
 
 func TestEmailEnforced(t *testing.T) {
 	v := setup(t)
-	v.enforceSMTP = true
+	v.enforce.SMTP = true
 	tests := map[string]bool{
 		"":                                 true,
 		"a@e":                              false,
