@@ -12,10 +12,9 @@ var domainRegex = regexp.MustCompile(`^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-
 var privateSuffix = []string{".etke.host"}
 
 // Domain checks if domain is valid
-func (v *V) Domain(domain string, must bool) bool {
-	// edge case: domain may be optional
-	if domain == "" && !must {
-		return true
+func (v *V) Domain(domain string) bool {
+	if domain == "" {
+		return !v.enforce.Domain
 	}
 
 	if !v.DomainString(domain) {

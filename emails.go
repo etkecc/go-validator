@@ -11,7 +11,7 @@ import (
 func (v *V) Email(email string) bool {
 	// edge case: email may be optional
 	if email == "" {
-		return true
+		return !v.enforce.Email
 	}
 
 	length := len(email)
@@ -27,18 +27,15 @@ func (v *V) Email(email string) bool {
 		return false
 	}
 
-	if v.spam(email) {
-		v.log.Info("email %s invalid, reason: spamlist", email)
-		return false
+	emailb := []byte(email)
+	for _, spamregex := range v.spamlist {
+		if spamregex.Match(emailb) {
+			v.log.Info("email %s invalid, reason: spamlist", email)
+			return false
+		}
 	}
 
-	localpart := email[:strings.LastIndex(email, "@")]
-	if v.spam(localpart) {
-		v.log.Info("email %s invalid, reason: spamlist", email)
-		return false
-	}
-
-	if v.emailDomain(email) {
+	if v.emailMX(email) {
 		return false
 	}
 
@@ -50,24 +47,13 @@ func (v *V) Email(email string) bool {
 	return true
 }
 
-// emailDomain checks if email domain or host is invalid
-func (v *V) emailDomain(email string) bool {
+func (v *V) emailMX(email string) bool {
 	at := strings.LastIndex(email, "@")
 	domain := email[at+1:]
-	host := v.GetBase(domain)
 
-	if v.spam(domain) {
-		v.log.Info("email %s domain %s invalid, reason: spamlist", email, domain)
-		return true
-	}
-	if v.spam(host) {
-		v.log.Info("email %s host %s invalid, reason: spamlist", email, host)
-		return true
-	}
-
-	nomx := !v.MX(domain) && !v.MX(host)
+	nomx := !v.MX(domain)
 	if nomx {
-		v.log.Info("email %s domain/host %s invalid, reason: no MX", email, domain)
+		v.log.Info("email %s domain %s invalid, reason: no MX", email, domain)
 		if v.enforce.MX {
 			return true
 		}
@@ -88,29 +74,6 @@ func (v *V) emailSMTP(email string) bool {
 		return true
 	}
 	defer client.Close()
-
-	return false
-}
-
-// spam checks spam lists for the item
-func (v *V) spam(item string) bool {
-	for _, address := range v.spamlist.Emails {
-		if address == item {
-			return true
-		}
-	}
-
-	for _, localpart := range v.spamlist.Localparts {
-		if localpart == item {
-			return true
-		}
-	}
-
-	for _, host := range v.spamlist.Hosts {
-		if host == item {
-			return true
-		}
-	}
 
 	return false
 }

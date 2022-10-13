@@ -30,17 +30,15 @@ func setup(t *testing.T) *V {
 		t.Skipf("skipping test: no external network in -short mode")
 	}
 
-	spam := Spam{
-		Hosts:      []string{"spam.host"},
-		Emails:     []string{"spam@email.host"},
-		Localparts: []string{"spam"},
-	}
+	spamlist := []string{"*@spam.host", "spam@email.host", "spam@*"}
 	enforce := Enforce{
-		MX:   true,
-		SMTP: false,
+		Email:  true,
+		Domain: true,
+		MX:     true,
+		SMTP:   false,
 	}
 
-	return New(spam, enforce, "test@ilydeen.org", &log{})
+	return New(spamlist, enforce, "test@ilydeen.org", &log{})
 }
 
 func TestNew(t *testing.T) {
@@ -120,7 +118,8 @@ func TestDomainEnforced(t *testing.T) {
 
 	for host, slice := range tests {
 		t.Run(host, func(t *testing.T) {
-			result := v.Domain(host, slice[0])
+			v.enforce.Domain = slice[0]
+			result := v.Domain(host)
 
 			if slice[1] != result {
 				t.Error(slice[1], "!=", result)
@@ -137,7 +136,8 @@ func TestDomainLax(t *testing.T) {
 
 	for host, slice := range tests {
 		t.Run(host, func(t *testing.T) {
-			result := v.Domain(host, slice[0])
+			v.enforce.Domain = slice[0]
+			result := v.Domain(host)
 
 			if slice[1] != result {
 				t.Error(slice[1], "!=", result)
@@ -150,7 +150,7 @@ func TestEmailEnforced(t *testing.T) {
 	v := setup(t)
 	v.enforce.SMTP = true
 	tests := map[string]bool{
-		"":                                 true,
+		"":                                 false,
 		"a@e":                              false,
 		"example.com":                      false,
 		"doesnt.exists":                    false,
@@ -179,6 +179,7 @@ func TestEmailEnforced(t *testing.T) {
 
 func TestEmailLax(t *testing.T) {
 	v := setup(t)
+	v.enforce.Email = false
 	tests := map[string]bool{
 		"":                                 true,
 		"a@e":                              false,
