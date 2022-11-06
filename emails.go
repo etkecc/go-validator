@@ -65,7 +65,7 @@ func (v *V) emailMX(email string) bool {
 func (v *V) emailSMTP(email string) bool {
 	client, err := trysmtp.Connect(v.from, email)
 	if err != nil {
-		if strings.HasPrefix(err.Error(), "451") {
+		if strings.HasPrefix(err.Error(), "45") {
 			v.log.Info("email %s may be invalid, reason: SMTP check (%v)", email, err)
 			return false
 		}

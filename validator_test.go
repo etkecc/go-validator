@@ -38,7 +38,7 @@ func setup(t *testing.T) *V {
 		SMTP:   false,
 	}
 
-	return New(spamlist, enforce, "test@ilydeen.org", &log{})
+	return New(spamlist, enforce, "test@matrix.etke.cc", &log{})
 }
 
 func TestNew(t *testing.T) {
