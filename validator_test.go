@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"runtime"
 	"testing"
@@ -203,6 +204,31 @@ func TestEmailLax(t *testing.T) {
 
 			if expected != result {
 				t.Error(expected, "!=", result)
+			}
+		})
+	}
+}
+
+func TestEmailSPF(t *testing.T) {
+	v := setup(t)
+	v.enforce.SPF = true
+	v.enforce.MX = false
+	v.enforce.SMTP = false
+	tests := []struct {
+		email    string
+		ip       net.IP
+		expected bool
+	}{
+		{"iana@iana.org", net.IPv4(199, 91, 192, 1), true},
+		{"iana@icann.org", net.IPv4(123, 123, 123, 123), false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.email, func(t *testing.T) {
+			result := v.Email(test.email, test.ip)
+
+			if test.expected != result {
+				t.Error("spf check of", test.email, "failed")
 			}
 		})
 	}
