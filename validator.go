@@ -1,50 +1,31 @@
 package validator
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
 
 // V is a validator implementation
 type V struct {
-	spamlist []*regexp.Regexp
-	enforce  Enforce
-	from     string
-	log      Logger
+	cfg *Config
 }
 
-// Enforce checks
-type Enforce struct {
-	// Email enforces email check and rejects empty emails
-	Email bool
-	// Domain enforces domain check and rejects empty domains
-	Domain bool
-	// SMTP enforces SMTP check (email actually exists on mail server) and rejects non-existing emails
-	SMTP bool
-	// SPF enforces SPF record check (sender allowed to use that email and send emails) and rejects unathorized emails
-	SPF bool
-	// MX enforces MX records check on email's mail server
-	MX bool
+var defaultLogfunc = func(msg string, args ...any) {
+	fmt.Printf(msg+"\n", args...)
 }
 
-type Logger interface {
-	Info(string, ...interface{})
-	Error(string, ...interface{})
-}
-
-// New Validator, accepts spamlist with wildcards
-func New(spamlist []string, enforce Enforce, smtpFrom string, log Logger) *V {
-	spamregexes, err := parseSpamlist(spamlist)
+// New validator
+func New(cfg *Config) *V {
+	if cfg.Log == nil {
+		cfg.Log = defaultLogfunc
+	}
+	spamregexes, err := parseSpamlist(cfg.Email.Spamlist)
 	if err != nil {
-		log.Error("cannot parse spamlist: %v", err)
+		cfg.Log("cannot parse spamlist: %v", err)
 	}
-
-	return &V{
-		spamlist: spamregexes,
-		enforce:  enforce,
-		from:     smtpFrom,
-		log:      log,
-	}
+	cfg.Email.spamlist = spamregexes
+	return &V{cfg}
 }
 
 func parseSpamlist(patterns []string) ([]*regexp.Regexp, error) {

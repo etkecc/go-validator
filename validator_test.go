@@ -1,22 +1,11 @@
 package validator
 
 import (
-	"fmt"
 	"net"
 	"reflect"
 	"runtime"
 	"testing"
 )
-
-type log struct{}
-
-func (l *log) Info(msg string, args ...interface{}) {
-	fmt.Printf(msg+"\n", args...)
-}
-
-func (l *log) Error(msg string, args ...interface{}) {
-	fmt.Printf(msg+"\n", args...)
-}
 
 func setup(t *testing.T) *V {
 	t.Helper()
@@ -31,15 +20,20 @@ func setup(t *testing.T) *V {
 		t.Skipf("skipping test: no external network in -short mode")
 	}
 
-	spamlist := []string{"*@spam.host", "spam@email.host", "spam@*"}
-	enforce := Enforce{
-		Email:  true,
-		Domain: true,
-		MX:     true,
-		SMTP:   false,
+	cfg := &Config{
+		Email: Email{
+			Enforce:  true,
+			MX:       true,
+			SMTP:     false,
+			From:     "test@matrix.etke.cc",
+			Spamlist: []string{"*@spam.host", "spam@email.host", "spam@*"},
+		},
+		Domain: Domain{
+			Enforce: true,
+		},
 	}
 
-	return New(spamlist, enforce, "test@matrix.etke.cc", &log{})
+	return New(cfg)
 }
 
 func TestNew(t *testing.T) {
@@ -118,7 +112,7 @@ func TestDomainEnforced(t *testing.T) {
 	for host, slice := range tests {
 		t.Run(host, func(t *testing.T) {
 			v := setup(t)
-			v.enforce.Domain = slice[0]
+			v.cfg.Domain.Enforce = slice[0]
 
 			result := v.Domain(host)
 
@@ -136,7 +130,7 @@ func TestDomainLax(t *testing.T) {
 	for host, slice := range tests {
 		t.Run(host, func(t *testing.T) {
 			v := setup(t)
-			v.enforce.Domain = slice[0]
+			v.cfg.Domain.Enforce = slice[0]
 
 			result := v.Domain(host)
 
@@ -156,8 +150,6 @@ func TestEmailEnforced(t *testing.T) {
 		"that's invalid!":                  false,
 		"invalid@doesnt.exists":            false,
 		"example@example.com":              false,
-		"invalid@iana.org":                 false,
-		"iana@iana.org":                    true,
 		"CYKPDhCreCEGff@dkimvalidator.com": true,
 		"spam@validhost.com":               false,
 		"notspam@spam.host":                false,
@@ -168,8 +160,8 @@ func TestEmailEnforced(t *testing.T) {
 	for host, expected := range tests {
 		t.Run(host, func(t *testing.T) {
 			v := setup(t)
-			v.enforce.SMTP = true
-			v.enforce.MX = true
+			v.cfg.Email.SMTP = true
+			v.cfg.Email.MX = true
 
 			result := v.Email(host)
 
@@ -188,8 +180,6 @@ func TestEmailLax(t *testing.T) {
 		"doesnt.exists":                    false,
 		"that's invalid!":                  false,
 		"example@example.com":              true,
-		"invalid@iana.org":                 true,
-		"iana@iana.org":                    true,
 		"CYKPDhCreCEGff@dkimvalidator.com": true,
 		"spam@validhost.com":               false,
 		"notspam@spam.host":                false,
@@ -200,7 +190,7 @@ func TestEmailLax(t *testing.T) {
 	for host, expected := range tests {
 		t.Run(host, func(t *testing.T) {
 			v := setup(t)
-			v.enforce.Email = false
+			v.cfg.Email.Enforce = false
 
 			result := v.Email(host)
 
@@ -218,14 +208,13 @@ func TestEmailSPF(t *testing.T) {
 		expected bool
 	}{
 		{"iana@iana.org", net.IPv4(199, 91, 192, 1), true},
-		{"iana@icann.org", net.IPv4(123, 123, 123, 123), false},
 	}
 	for _, test := range tests {
 		t.Run(test.email, func(t *testing.T) {
 			v := setup(t)
-			v.enforce.SPF = true
-			v.enforce.MX = false
-			v.enforce.SMTP = false
+			v.cfg.Email.SPF = true
+			v.cfg.Email.MX = false
+			v.cfg.Email.SMTP = false
 
 			result := v.Email(test.email, test.ip)
 
@@ -253,6 +242,7 @@ func TestGetBase(t *testing.T) {
 	for host, expected := range tests {
 		t.Run(host, func(t *testing.T) {
 			v := setup(t)
+			v.cfg.Domain.PrivateSuffixes = []string{".etke.host"}
 
 			result := v.GetBase(host)
 

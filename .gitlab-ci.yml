@@ -1,11 +1,11 @@
 lint:
-  image: registry.gitlab.com/etke.cc/base
+  stage: test
+  image: registry.gitlab.com/etke.cc/base/build
   script:
-    - golangci-lint run ./...
+    - just lint
 
 unit:
-  image: registry.gitlab.com/etke.cc/base
+  stage: test
+  image: registry.gitlab.com/etke.cc/base/build
   script:
-    - go test -coverprofile=cover.out ./...
-    - go tool cover -func=cover.out
-    - rm -f cover.out
+    - just test
