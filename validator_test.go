@@ -82,6 +82,46 @@ func TestCNAME(t *testing.T) {
 	}
 }
 
+func TestNS(t *testing.T) {
+	tests := map[string]bool{
+		"":              false,
+		"example.com":   true,
+		"doesnt.exists": false,
+	}
+	for host, expected := range tests {
+		t.Run(host, func(t *testing.T) {
+			v := setup(t)
+
+			result := v.NS(host)
+
+			if expected != result {
+				t.Error(expected, "!=", result)
+			}
+		})
+	}
+}
+
+func TestNS_Contains(t *testing.T) {
+	tests := map[string]bool{
+		"":               false,
+		"example.com":    false,
+		"cloudflare.com": true,
+		"doesnt.exists":  false,
+	}
+	contains := "cloudflare.com"
+	for host, expected := range tests {
+		t.Run(host, func(t *testing.T) {
+			v := setup(t)
+
+			result := v.NS(host, contains)
+
+			if expected != result {
+				t.Error(expected, "!=", result)
+			}
+		})
+	}
+}
+
 func TestMX(t *testing.T) {
 	tests := map[string]bool{
 		"":              false,
