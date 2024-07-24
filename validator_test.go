@@ -203,7 +203,7 @@ func TestEmailEnforced(t *testing.T) {
 			v.cfg.Email.SMTP = true
 			v.cfg.Email.MX = true
 
-			result := v.Email(host)
+			result := v.Email(host, "")
 
 			if expected != result {
 				t.Error(expected, "!=", result)
@@ -232,7 +232,7 @@ func TestEmailLax(t *testing.T) {
 			v := setup(t)
 			v.cfg.Email.Enforce = false
 
-			result := v.Email(host)
+			result := v.Email(host, "")
 
 			if expected != result {
 				t.Error(expected, "!=", result)
@@ -243,11 +243,12 @@ func TestEmailLax(t *testing.T) {
 
 func TestEmailSPF(t *testing.T) {
 	tests := []struct {
-		email    string
-		ip       net.IP
-		expected bool
+		email      string
+		returnPath string
+		ip         net.IP
+		expected   bool
 	}{
-		{"iana@iana.org", net.IPv4(199, 91, 192, 1), true},
+		{"iana@iana.org", "bounces@bounces.iana.org", net.IPv4(199, 91, 192, 1), true},
 	}
 	for _, test := range tests {
 		t.Run(test.email, func(t *testing.T) {
@@ -256,7 +257,7 @@ func TestEmailSPF(t *testing.T) {
 			v.cfg.Email.MX = false
 			v.cfg.Email.SMTP = false
 
-			result := v.Email(test.email, test.ip)
+			result := v.Email(test.email, test.returnPath, test.ip)
 
 			if test.expected != result {
 				t.Error("spf check of", test.email, "failed")
