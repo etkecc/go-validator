@@ -1,4 +1,4 @@
-module gitlab.com/etke.cc/go/validator/v2
+module github.com/etkecc/go-validator/v2
 
 go 1.18
 
