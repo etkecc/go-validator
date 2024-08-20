@@ -4,6 +4,6 @@ go 1.18
 
 require (
 	blitiri.com.ar/go/spf v1.5.1
-	gitlab.com/etke.cc/go/trysmtp v1.1.3
-	golang.org/x/net v0.27.0
+	github.com/etkecc/go-trysmtp v1.1.4
+	golang.org/x/net v0.28.0
 )

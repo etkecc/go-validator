@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"blitiri.com.ar/go/spf"
-	"gitlab.com/etke.cc/go/trysmtp"
+	"github.com/etkecc/go-trysmtp"
 	"golang.org/x/net/context"
 )
 
