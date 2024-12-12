@@ -5,5 +5,5 @@ go 1.22.0
 require (
 	blitiri.com.ar/go/spf v1.5.1
 	github.com/etkecc/go-trysmtp v1.1.5
-	golang.org/x/net v0.30.0
+	golang.org/x/net v0.32.0
 )
