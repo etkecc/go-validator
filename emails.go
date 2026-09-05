@@ -20,8 +20,7 @@ var (
 	ErrSPF      = fmt.Errorf("SPF")
 )
 
-// Email checks if email is valid
-// returnPath and optionalSenderIP are optional fields
+// Email checks if email is valid; returnPath and optionalSenderIP are optional fields.
 func (v *V) Email(email, returnPath string, optionalSenderIP ...net.IP) bool {
 	return v.EmailWithError(email, returnPath, optionalSenderIP...) == nil
 }

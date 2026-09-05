@@ -10,9 +10,7 @@ import (
 func setup(t *testing.T) *V {
 	t.Helper()
 
-	// copy of internal/testenv.MustHaveExternalNetwork()
-	// because use of internal/ packages is prohibited,
-	// but Validator tests require external network
+	// copy of internal/testenv.MustHaveExternalNetwork(): internal/ packages are off-limits, but tests need this check
 	if runtime.GOOS == "js" {
 		t.Skipf("skipping test: no external network on %s", runtime.GOOS)
 	}

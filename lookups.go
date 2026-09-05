@@ -47,8 +47,7 @@ func (v *V) MX(host string) bool {
 	return len(mxs) > 0
 }
 
-// NS checks if host has at least one NS record,
-// and optionally checks if the NS record contains the given string
+// NS checks if host has at least one NS record, optionally containing the given string.
 func (v *V) NS(host string, contains ...string) bool {
 	if host == "" {
 		return false
