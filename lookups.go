@@ -1,16 +1,13 @@
 package validator
 
-import (
-	"net"
-	"strings"
-)
+import "strings"
 
 // A checks if host has at least one A record
 func (v *V) A(host string) bool {
 	if host == "" {
 		return false
 	}
-	ips, err := net.LookupIP(host)
+	ips, err := v.resolver.LookupIP(host)
 	if err != nil {
 		v.cfg.Log("cannot get A records of %s: %v", host, err)
 		return false
@@ -24,7 +21,7 @@ func (v *V) CNAME(host string) bool {
 	if host == "" {
 		return false
 	}
-	cname, err := net.LookupCNAME(host)
+	cname, err := v.resolver.LookupCNAME(host)
 	if err != nil {
 		v.cfg.Log("cannot get CNAME records of %s: %v", host, err)
 		return false
@@ -38,7 +35,7 @@ func (v *V) MX(host string) bool {
 	if host == "" {
 		return false
 	}
-	mxs, err := net.LookupMX(host)
+	mxs, err := v.resolver.LookupMX(host)
 	if err != nil {
 		v.cfg.Log("cannot get MX records of %s: %v", host, err)
 		return false
@@ -52,7 +49,7 @@ func (v *V) NS(host string, contains ...string) bool {
 	if host == "" {
 		return false
 	}
-	nss, err := net.LookupNS(host)
+	nss, err := v.resolver.LookupNS(host)
 	if err != nil {
 		v.cfg.Log("cannot get NS records of %s: %v", host, err)
 		return false
@@ -66,12 +63,10 @@ func (v *V) NS(host string, contains ...string) bool {
 		return true
 	}
 
-	if len(contains) > 0 {
-		for _, ns := range nss {
-			for _, c := range contains {
-				if strings.Contains(ns.Host, c) {
-					return true
-				}
+	for _, ns := range nss {
+		for _, c := range contains {
+			if strings.Contains(ns.Host, c) {
+				return true
 			}
 		}
 	}

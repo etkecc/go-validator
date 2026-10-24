@@ -3,10 +3,10 @@ package validator
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/mail"
 	"strings"
+	"sync"
 	"time"
 
 	"blitiri.com.ar/go/spf"
@@ -14,11 +14,16 @@ import (
 )
 
 var (
-	ErrSpamlist = fmt.Errorf("spamlist")
-	ErrNoMX     = fmt.Errorf("no MX")
-	ErrSMTP     = fmt.Errorf("SMTP")
-	ErrSPF      = fmt.Errorf("SPF")
+	ErrSpamlist = errors.New("spamlist")
+	ErrNoMX     = errors.New("no MX")
+	ErrSMTP     = errors.New("SMTP")
+	ErrSPF      = errors.New("SPF")
 )
+
+// setSMTPAddrs restricts recipient checks to port 25, once per process.
+var setSMTPAddrs = sync.OnceFunc(func() {
+	trysmtp.SMTPAddrs = []string{":25"}
+})
 
 // Email checks if email is valid; returnPath and optionalSenderIP are optional fields.
 func (v *V) Email(email, returnPath string, optionalSenderIP ...net.IP) bool {
@@ -83,69 +88,71 @@ func (v *V) emailChecks(email, returnPath string, optionalSenderIP ...net.IP) er
 	}
 }
 
+// runCheck runs one email check; a panic is logged and the check passes.
+func (v *V) runCheck(ctx context.Context, name string, check func() error) error {
+	defer func() {
+		if r := recover(); r != nil {
+			v.cfg.Log("panic in %s check: %v", name, r)
+		}
+	}()
+	if ctx.Err() != nil {
+		return nil
+	}
+	return check()
+}
+
 func (v *V) emailSpamlist(ctx context.Context, email string, errchan chan error) {
-	select {
-	case <-ctx.Done():
-		return
-	default:
+	errchan <- v.runCheck(ctx, "spamlist", func() error {
 		emailb := []byte(email)
 		for _, spamregex := range v.cfg.Email.spamlist {
 			if spamregex.Match(emailb) {
-				errchan <- ErrSpamlist
-				return
+				return ErrSpamlist
 			}
 		}
-		errchan <- nil
-	}
+		return nil
+	})
 }
 
 func (v *V) emailNoMX(ctx context.Context, email string, errchan chan error) {
-	select {
-	case <-ctx.Done():
-		return
-	default:
+	errchan <- v.runCheck(ctx, "MX", func() error {
 		if !v.cfg.Email.MX {
-			errchan <- nil
-			return
+			return nil
 		}
 
 		at := strings.LastIndex(email, "@")
 		domain := email[at+1:]
 		if !v.MX(domain) {
 			v.cfg.Log("email %s domain %s invalid, reason: no MX", email, domain)
-			errchan <- ErrNoMX
-			return
+			return ErrNoMX
 		}
-		errchan <- nil
-	}
+		return nil
+	})
 }
 
 func (v *V) emailNoSMTP(ctx context.Context, email string, errchan chan error) {
-	select {
-	case <-ctx.Done():
-		return
-	default:
+	errchan <- v.runCheck(ctx, "SMTP", func() error {
 		if !v.cfg.Email.SMTP {
-			errchan <- nil
-			return
+			return nil
 		}
 
-		trysmtp.SMTPAddrs = []string{":25"}
-		client, err := trysmtp.Connect(v.cfg.Email.From, email)
+		setSMTPAddrs()
+		client, err := v.smtpDial(v.cfg.Email.From, email)
+		if client != nil {
+			// A live client means MAIL and RCPT succeeded; err only carries earlier failures.
+			defer client.Close()
+			return nil
+		}
 		if err != nil {
 			if strings.HasPrefix(err.Error(), "45") {
 				v.cfg.Log("email %s may be invalid, reason: SMTP check (%v)", email, err)
-				errchan <- nil
-				return
+				return nil
 			}
 
 			v.cfg.Log("email %s invalid, reason: SMTP check (%v)", email, err)
-			errchan <- ErrSMTP
-			return
+			return ErrSMTP
 		}
-		client.Close()
-		errchan <- nil
-	}
+		return nil
+	})
 }
 
 // shouldValidateReturnPath checks if returnPath should be validated in SPF check
@@ -175,13 +182,9 @@ func (v *V) shouldValidateReturnPath(email, returnPath string) bool {
 }
 
 func (v *V) emailNoSPF(ctx context.Context, email, returnPath string, senderIP net.IP, errchan chan error) {
-	select {
-	case <-ctx.Done():
-		return
-	default:
+	errchan <- v.runCheck(ctx, "SPF", func() error {
 		if !v.cfg.Email.SPF {
-			errchan <- nil
-			return
+			return nil
 		}
 
 		opts := []spf.Option{
@@ -189,18 +192,16 @@ func (v *V) emailNoSPF(ctx context.Context, email, returnPath string, senderIP n
 			spf.WithTraceFunc(v.cfg.Log),
 		}
 
-		resultEmail, _ := spf.CheckHostWithSender(senderIP, "", email, opts...) //nolint:errcheck // not a error
-		if resultEmail == spf.Fail {
-			if v.shouldValidateReturnPath(email, returnPath) {
-				resultReturnPath, _ := spf.CheckHostWithSender(senderIP, "", returnPath, opts...) //nolint:errcheck // not a error
-				if resultReturnPath == spf.Fail {
-					errchan <- ErrSPF
-					return
-				}
-			}
-			errchan <- ErrSPF
-			return
+		resultEmail, _ := v.spfCheck(senderIP, "", email, opts...) //nolint:errcheck // not a error
+		if resultEmail != spf.Fail {
+			return nil
 		}
-		errchan <- nil
-	}
+		if v.shouldValidateReturnPath(email, returnPath) {
+			resultReturnPath, _ := v.spfCheck(senderIP, "", returnPath, opts...) //nolint:errcheck // not a error
+			if resultReturnPath == spf.Pass {
+				return nil
+			}
+		}
+		return ErrSPF
+	})
 }
