@@ -2,7 +2,7 @@
 
 Library that validates different things:
 
-* A/CNAME/MX lookups
+* A/CNAME/MX/NS lookups
 * Domain names
 * Emails
 * etc

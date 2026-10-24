@@ -79,10 +79,7 @@ func TestParsePattern(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			regexes, err := parseSpamlist([]string{tt.pattern})
-			if err != nil {
-				t.Fatalf("parseSpamlist(%q): %v", tt.pattern, err)
-			}
+			regexes := parseSpamlist([]string{tt.pattern})
 			if len(regexes) != 1 {
 				t.Fatalf("parseSpamlist(%q) returned %d regexes, want 1", tt.pattern, len(regexes))
 			}

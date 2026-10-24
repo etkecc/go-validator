@@ -6,6 +6,7 @@ import (
 	"net"
 	"slices"
 	"testing"
+	"time"
 
 	"blitiri.com.ar/go/spf"
 )
@@ -292,5 +293,58 @@ func TestRunCheck(t *testing.T) {
 		return ErrSPF
 	}); err != nil || called {
 		t.Errorf("canceled runCheck = %v (called %v), want nil (called false)", err, called)
+	}
+}
+
+func TestEmailTimeout(t *testing.T) {
+	env := newEnv(t)
+	gate := make(chan struct{})
+	t.Cleanup(func() { close(gate) })
+	env.v.cfg.Email.SMTP = true
+	env.v.checkTimeout = 100 * time.Millisecond
+	env.smtp.gate = gate
+
+	if err := env.v.EmailWithError("user@example.com", ""); !errors.Is(err, ErrTimeout) {
+		t.Fatalf("EmailWithError = %v, want ErrTimeout", err)
+	}
+	if calls, _ := env.smtp.snapshot(); len(calls) != 1 {
+		t.Fatalf("SMTP dials = %d, want 1; the deadline must interrupt an in-flight dial", len(calls))
+	}
+	if !env.logs.contains("aborted") {
+		t.Error("timeout was not logged")
+	}
+}
+
+func TestEmailContextCanceled(t *testing.T) {
+	env := newEnv(t)
+	gate := make(chan struct{})
+	t.Cleanup(func() { close(gate) })
+	env.v.cfg.Email.SMTP = true
+	env.smtp.gate = gate
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- env.v.EmailWithContext(ctx, "user@example.com", "") }()
+	cancel()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("EmailWithContext = %v, want context.Canceled", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("EmailWithContext ignored cancellation")
+	}
+}
+
+func TestCanceledContextNeverPasses(t *testing.T) {
+	env := newEnv(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	for range 500 {
+		if err := env.v.EmailWithContext(ctx, "spam@example.com", ""); !errors.Is(err, context.Canceled) {
+			t.Fatalf("EmailWithContext = %v, want context.Canceled", err)
+		}
 	}
 }
